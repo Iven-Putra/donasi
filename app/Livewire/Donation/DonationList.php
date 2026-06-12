@@ -51,7 +51,7 @@ class DonationList extends Component
         session()->flash('message', 'Status transaksi berhasil diperbarui.');
     }
 
-    public function exportCsv()
+    public function exportExcel()
     {
         $donations = Donation::query()
             ->with(['donor', 'donationType', 'user'])
@@ -81,44 +81,55 @@ class DonationList extends Component
             ->orderBy('donation_date', 'desc')
             ->get();
 
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Header columns
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="laporan-donasi-' . date('Ymd-His') . '.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+            'No. Transaksi', 'Tanggal Donasi', 'Nama Donatur', 'Tipe Donatur', 
+            'Jenis Donasi', 'Nominal Donasi', 'Metode Pembayaran', 
+            'Keterangan', 'Petugas Input', 'Status'
         ];
 
-        $callback = function () use ($donations) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM
+        foreach ($headers as $colIndex => $headerText) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+            $sheet->setCellValue($colLetter . '1', $headerText);
+        }
 
-            // Header columns
-            fputcsv($file, [
-                'No. Transaksi', 'Tanggal Donasi', 'Nama Donatur', 'Tipe Donatur', 
-                'Jenis Donasi', 'Nominal Donasi', 'Metode Pembayaran', 
-                'Keterangan', 'Petugas Input', 'Status'
-            ]);
+        $row = 2;
+        foreach ($donations as $donation) {
+            $sheet->setCellValue('A' . $row, $donation->transaction_number);
+            $sheet->setCellValue('B' . $row, $donation->donation_date->format('Y-m-d H:i:s'));
+            $sheet->setCellValue('C' . $row, $donation->donor->name ?? 'Donatur Umum');
+            $sheet->setCellValue('D' . $row, $donation->donor->donor_type ?? '-');
+            $sheet->setCellValue('E' . $row, $donation->donationType->name ?? '-');
+            $sheet->setCellValue('F' . $row, (float) $donation->amount);
+            $sheet->setCellValue('G' . $row, $donation->payment_method);
+            $sheet->setCellValue('H' . $row, $donation->notes);
+            $sheet->setCellValue('I' . $row, $donation->user->name ?? '-');
+            $sheet->setCellValue('J' . $row, $donation->status);
+            $row++;
+        }
 
-            foreach ($donations as $donation) {
-                fputcsv($file, [
-                    $donation->transaction_number,
-                    $donation->donation_date->format('Y-m-d H:i:s'),
-                    $donation->donor->name ?? 'Donatur Umum',
-                    $donation->donor->donor_type ?? '-',
-                    $donation->donationType->name ?? '-',
-                    (float) $donation->amount,
-                    $donation->payment_method,
-                    $donation->notes,
-                    $donation->user->name ?? '-',
-                    $donation->status,
-                ]);
-            }
+        // Auto size columns for perfect rendering
+        foreach (range(1, count($headers)) as $colIndex) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
 
-            fclose($file);
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        $responseHeaders = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="laporan-donasi-' . date('Ymd-His') . '.xlsx"',
+            'Cache-Control' => 'max-age=0',
+        ];
+
+        $callback = function () use ($writer) {
+            $writer->save('php://output');
         };
 
-        return response()->stream($callback, 200, $headers);
+        return response()->stream($callback, 200, $responseHeaders);
     }
 
     public function render()

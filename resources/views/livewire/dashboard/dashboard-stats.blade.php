@@ -107,17 +107,45 @@
         <h4 class="text-lg font-bold text-gray-800 dark:text-white mb-6">Donasi Per Jenis Program</h4>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             @foreach($donationsByType as $type)
-                <a href="{{ route('donation-types.details', $type['id']) }}" wire:navigate class="block p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-sm transition-all duration-200">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-xs font-bold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded">
-                            {{ $type['code'] }}
-                        </span>
-                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 truncate">{{ $type['name'] }}</span>
-                    </div>
-                    <p class="text-lg font-bold text-gray-900 dark:text-white mt-2">
-                        Rp{{ number_format($type['total'], 0, ',', '.') }}
-                    </p>
-                </a>
+                @if(!empty($type['flyer']))
+                    <a href="{{ route('donation-types.details', $type['id']) }}" wire:navigate class="relative block p-4 rounded-xl border border-gray-100 dark:border-gray-800 hover:shadow-md transition-all duration-300 overflow-hidden group min-h-[110px] flex flex-col justify-between">
+                        <!-- Flyer image background -->
+                        <img src="{{ asset('storage/' . $type['flyer']) }}" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 z-0" alt="{{ $type['name'] }}">
+                        <!-- Premium dark overlay/mask -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/35 group-hover:from-black/80 group-hover:via-black/45 group-hover:to-black/30 transition-all duration-300 z-10"></div>
+                        
+                        <!-- Content -->
+                        <div class="relative z-20 flex flex-col h-full justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] font-extrabold px-2 py-0.5 bg-white/20 text-white rounded backdrop-blur-sm border border-white/10 tracking-wider">
+                                    {{ $type['code'] }}
+                                </span>
+                                <span class="text-sm font-semibold text-white truncate max-w-[120px] group-hover:text-indigo-200 transition-colors" title="{{ $type['name'] }}">
+                                    {{ $type['name'] }}
+                                </span>
+                            </div>
+                            <p class="text-lg font-bold text-white mt-4">
+                                Rp{{ number_format($type['total'], 0, ',', '.') }}
+                            </p>
+                        </div>
+                    </a>
+                @else
+                    <a href="{{ route('donation-types.details', $type['id']) }}" wire:navigate class="block p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all duration-300 min-h-[110px] flex flex-col justify-between group">
+                        <div class="flex flex-col h-full justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] font-extrabold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded tracking-wider">
+                                    {{ $type['code'] }}
+                                </span>
+                                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 truncate max-w-[120px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" title="{{ $type['name'] }}">
+                                    {{ $type['name'] }}
+                                </span>
+                            </div>
+                            <p class="text-lg font-bold text-gray-900 dark:text-white mt-4">
+                                Rp{{ number_format($type['total'], 0, ',', '.') }}
+                            </p>
+                        </div>
+                    </a>
+                @endif
             @endforeach
         </div>
     </div>

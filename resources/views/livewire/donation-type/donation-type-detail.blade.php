@@ -49,25 +49,34 @@
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             
-            <!-- Search -->
-            <div class="flex-1 max-w-md">
-                <div class="relative">
+            <!-- Search & Filtered Total -->
+            <div class="flex-1 flex flex-wrap items-center gap-3">
+                <div class="relative w-full max-w-xs sm:max-w-md">
                     <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </span>
-                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari No. Transaksi / Donatur..." class="w-full pl-10 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari No. Transaksi / Donatur..." class="w-full pl-10 rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                 </div>
+
+                @if($search !== '')
+                    <div class="flex items-center space-x-2 bg-indigo-50 dark:bg-indigo-950/40 px-3.5 py-2 rounded-lg border border-indigo-100 dark:border-indigo-900/60 whitespace-nowrap shadow-sm">
+                        <span class="text-xs font-semibold text-indigo-650 dark:text-indigo-400">Total Pencarian:</span>
+                        <span class="text-sm font-black text-indigo-750 dark:text-indigo-300">
+                            Rp{{ number_format($filteredTotal, 0, ',', '.') }}
+                        </span>
+                    </div>
+                @endif
             </div>
 
             <!-- Export -->
             <div class="flex items-center space-x-3">
-                <button type="button" wire:click="exportCsv" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-650 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                <button type="button" wire:click="exportExcel" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-650 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg shadow-sm transition-colors">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    Ekspor Excel (CSV)
+                    Ekspor Excel
                 </button>
 
                 <a href="{{ route('donations.report-pdf') }}?typeFilter={{ $type->id }}&statusFilter=Selesai" target="_blank" class="inline-flex items-center px-4 py-2 border border-red-300 dark:border-red-900 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-700 dark:text-red-400 text-sm font-semibold rounded-lg shadow-sm transition-colors">

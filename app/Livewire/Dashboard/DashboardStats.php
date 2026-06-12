@@ -41,6 +41,7 @@ class DashboardStats extends Component
                 'id' => $type->id,
                 'name' => $type->name,
                 'code' => $type->code,
+                'flyer' => $type->flyer,
                 'total' => $type->donations_sum_amount ?? 0
             ];
         })->toArray();

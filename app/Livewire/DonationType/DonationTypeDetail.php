@@ -28,7 +28,7 @@ class DonationTypeDetail extends Component
         $this->resetPage();
     }
 
-    public function exportCsv()
+    public function exportExcel()
     {
         $donations = Donation::query()
             ->with(['donor', 'user'])
@@ -45,47 +45,57 @@ class DonationTypeDetail extends Component
             ->orderBy('id', 'desc')
             ->get();
 
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Header columns
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="rincian-' . strtolower(str_replace(' ', '-', $this->type->name)) . '-' . date('Ymd-His') . '.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+            'No. Transaksi', 'Tanggal Donasi', 'Nama Donatur', 
+            'Nominal Donasi', 'Metode Pembayaran', 'Keterangan', 'Petugas Input', 'Status'
+        ];
+        
+        foreach ($headers as $colIndex => $headerText) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+            $sheet->setCellValue($colLetter . '1', $headerText);
+        }
+
+        $row = 2;
+        foreach ($donations as $donation) {
+            $sheet->setCellValue('A' . $row, $donation->transaction_number);
+            $sheet->setCellValue('B' . $row, $donation->donation_date->format('Y-m-d H:i:s'));
+            $sheet->setCellValue('C' . $row, $donation->donor->name ?? 'Donatur Umum');
+            $sheet->setCellValue('D' . $row, (float) $donation->amount);
+            $sheet->setCellValue('E' . $row, $donation->payment_method);
+            $sheet->setCellValue('F' . $row, $donation->notes);
+            $sheet->setCellValue('G' . $row, $donation->user->name ?? '-');
+            $sheet->setCellValue('H' . $row, $donation->status);
+            $row++;
+        }
+
+        // Auto size columns for perfect rendering
+        foreach (range(1, count($headers)) as $colIndex) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        $responseHeaders = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="rincian-' . strtolower(str_replace(' ', '-', $this->type->name)) . '-' . date('Ymd-His') . '.xlsx"',
+            'Cache-Control' => 'max-age=0',
         ];
 
-        $callback = function () use ($donations) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM
-
-            // Header columns
-            fputcsv($file, [
-                'No. Transaksi', 'Tanggal Donasi', 'Nama Donatur', 
-                'Nominal Donasi', 'Metode Pembayaran', 'Keterangan', 'Petugas Input', 'Status'
-            ]);
-
-            foreach ($donations as $donation) {
-                fputcsv($file, [
-                    $donation->transaction_number,
-                    $donation->donation_date->format('Y-m-d H:i:s'),
-                    $donation->donor->name ?? 'Donatur Umum',
-                    (float) $donation->amount,
-                    $donation->payment_method,
-                    $donation->notes,
-                    $donation->user->name ?? '-',
-                    $donation->status,
-                ]);
-            }
-
-            fclose($file);
+        $callback = function () use ($writer) {
+            $writer->save('php://output');
         };
 
-        return response()->stream($callback, 200, $headers);
+        return response()->stream($callback, 200, $responseHeaders);
     }
 
     public function render()
     {
-        $donations = Donation::query()
-            ->with(['donor', 'user'])
+        $donationsQuery = Donation::query()
             ->where('donation_type_id', $this->type->id)
             ->where('status', 'Selesai') // Only show completed donations
             ->when($this->search, function ($query) {
@@ -95,12 +105,15 @@ class DonationTypeDetail extends Component
                             $q->where('name', 'like', '%' . $this->search . '%');
                         });
                 });
-            })
-            ->orderBy('id', 'desc')
-            ->paginate(10);
+            });
+
+        $filteredTotal = $donationsQuery->sum('amount');
+        
+        $donations = $donationsQuery->with(['donor', 'user'])->orderBy('id', 'desc')->paginate(10);
 
         return view('livewire.donation-type.donation-type-detail', [
-            'donations' => $donations
+            'donations' => $donations,
+            'filteredTotal' => $filteredTotal
         ])->layout('layouts.app', ['header' => 'Rincian Donasi: ' . $this->type->name]);
     }
 }

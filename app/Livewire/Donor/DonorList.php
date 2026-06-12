@@ -57,7 +57,7 @@ class DonorList extends Component
         session()->flash('message', 'Status donatur berhasil diubah.');
     }
 
-    public function exportCsv()
+    public function exportExcel()
     {
         $donors = Donor::query()
             ->when($this->search, function ($query) {
@@ -77,46 +77,56 @@ class DonorList extends Component
             ->orderBy('id', 'desc')
             ->get();
 
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Header columns
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="data-donatur-' . date('Ymd-His') . '.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+            'ID', 'Kode Donatur', 'Nama Donatur', 'Jenis Donatur', 
+            'No. Telepon', 'Email', 'Alamat', 'Kota', 'Provinsi', 
+            'Tanggal Gabung', 'Status'
         ];
 
-        $callback = function () use ($donors) {
-            $file = fopen('php://output', 'w');
-            // Add UTF-8 BOM for proper Excel encoding
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Header columns
-            fputcsv($file, [
-                'ID', 'Kode Donatur', 'Nama Donatur', 'Jenis Donatur', 
-                'No. Telepon', 'Email', 'Alamat', 'Kota', 'Provinsi', 
-                'Tanggal Gabung', 'Status'
-            ]);
+        foreach ($headers as $colIndex => $headerText) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+            $sheet->setCellValue($colLetter . '1', $headerText);
+        }
 
-            foreach ($donors as $donor) {
-                fputcsv($file, [
-                    $donor->id,
-                    $donor->donor_code,
-                    $donor->name,
-                    $donor->donor_type,
-                    $donor->phone,
-                    $donor->email,
-                    $donor->address,
-                    $donor->city,
-                    $donor->province,
-                    $donor->join_date->format('Y-m-d'),
-                    $donor->is_active ? 'Aktif' : 'Nonaktif',
-                ]);
-            }
+        $row = 2;
+        foreach ($donors as $donor) {
+            $sheet->setCellValue('A' . $row, $donor->id);
+            $sheet->setCellValue('B' . $row, $donor->donor_code);
+            $sheet->setCellValue('C' . $row, $donor->name);
+            $sheet->setCellValue('D' . $row, $donor->donor_type);
+            $sheet->setCellValue('E' . $row, $donor->phone);
+            $sheet->setCellValue('F' . $row, $donor->email);
+            $sheet->setCellValue('G' . $row, $donor->address);
+            $sheet->setCellValue('H' . $row, $donor->city);
+            $sheet->setCellValue('I' . $row, $donor->province);
+            $sheet->setCellValue('J' . $row, $donor->join_date->format('Y-m-d'));
+            $sheet->setCellValue('K' . $row, $donor->is_active ? 'Aktif' : 'Nonaktif');
+            $row++;
+        }
 
-            fclose($file);
+        // Auto size columns for perfect rendering
+        foreach (range(1, count($headers)) as $colIndex) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        $responseHeaders = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="data-donatur-' . date('Ymd-His') . '.xlsx"',
+            'Cache-Control' => 'max-age=0',
+        ];
+
+        $callback = function () use ($writer) {
+            $writer->save('php://output');
         };
 
-        return response()->stream($callback, 200, $headers);
+        return response()->stream($callback, 200, $responseHeaders);
     }
 
     public function render()
